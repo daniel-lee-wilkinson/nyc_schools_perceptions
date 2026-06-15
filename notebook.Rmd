@@ -1,0 +1,162 @@
+---
+title: "New York City Schools Perception"
+author: "Daniel Wilkinson"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+# Research Questions
+
+1. Is there a relationship between gender percentages and average SAT scores? How about for the different sections of the SAT (Reading, Writing, and Math)?
+
+2. Which NYC schools seem to have the best quality metrics according to survey data? Is there a difference if you break this down by response type?
+
+3. Can you learn anything from the differences in school quality metric perception between groups? For example, if you created a new variable by subtracting saf_p_11 from saf_s_11, do you think this difference in how students and parents perceive safety may be related to any other variables?
+
+```{r set-up, warning=FALSE, error=FALSE, message=FALSE}
+library(tidyverse)
+library(janitor)
+library(readr)
+library(corrplot)
+```
+
+
+```{r}
+url <- "https://dsserver-prod-resources-1.s3.us-east-1.amazonaws.com/327/combined.csv"
+df_combined <- read_csv(url)
+
+df_d75 <- read_tsv("masterfile11_d75_final.txt")
+names(df_d75)
+df_gened <- read_tsv("masterfile11_gened_final.txt")
+names(df_gened)
+```
+# Simplifying the Dataframes
+
+- cbind is used to stack rows with the same column names on top of each other. 
+
+- left joining the survey data onto the combined data because we are asking whether survey percentions *relate to* academic outcomes. All the rows in combined are retained, columns are added from the other datasets and where there is no corresponding value, NA is used.
+
+```{r}
+# select only relevant variables from df_combined
+# Step 1: simplify survey dataframes - done once, no duplication
+agg_cols <- c("saf_p_11", "com_p_11", "eng_p_11", "aca_p_11",
+              "saf_t_11", "com_t_11", "eng_t_11", "aca_t_11",
+              "saf_s_11", "com_s_11", "eng_s_11", "aca_s_11",
+              "saf_tot_11", "com_tot_11", "eng_tot_11", "aca_tot_11")
+
+df_d75 <- df_d75 %>%
+  select(dbn, schooltype, all_of(agg_cols))
+
+df_gened <- df_gened %>%
+  select(dbn, schooltype, all_of(agg_cols))
+
+# Step 2: combine survey dataframes
+df_survey <- bind_rows(df_gened, df_d75)
+
+# Step 3: rename dbn to match combined, then left_join
+df_survey <- df_survey %>%
+  rename(DBN = dbn)
+
+df_main <- df_combined %>%
+  left_join(df_survey, by = "DBN")
+
+# Step 4: pivot to long format
+df_long <- df_main %>%
+  pivot_longer(cols = all_of(agg_cols),
+               names_to  = "metric",
+               values_to = "score")
+
+# clean up the column names with janitor
+df_long <- df_long %>% clean_names()
+
+```
+
+
+# Correlations between variables
+
+```{r}
+df_main %>%
+  select(avg_sat_score, female_per, male_per, 
+         all_of(agg_cols)) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  corrplot()
+```
+
+
+```{r}
+# tibble of correlations between variables, orded by absolute value descending
+cor_tibble <- df_main %>%
+  select(avg_sat_score, all_of(agg_cols)) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  as_tibble(rownames = "variable") %>%
+  pivot_longer(-variable, names_to = "variable2", values_to = "correlation") %>%
+  filter(variable == "avg_sat_score") %>%  # focus on SAT correlations
+  arrange(desc(abs(correlation)))
+
+df_main %>%
+  select(avg_sat_score, all_of(agg_cols)) %>%
+  drop_na() %>%                   
+  pivot_longer(-avg_sat_score, names_to = "metric", values_to = "score") %>%
+  ggplot(aes(x = score, y = avg_sat_score)) +
+  geom_point() +
+  facet_wrap(metric ~ ., scales = "free_x") +
+  labs(y = "Average SAT Score", x = NULL) +
+  coord_cartesian(xlim = c(1.9, 10)) +
+  theme_bw() +
+  theme(panel.spacing = unit(1, "lines"))
+
+
+
+```
+
+# Results
+
+- scores range from 1.9 to 10.
+- within the parents groups and student groups, they tend to rate similarly around 5-9 wheras teachers have a more spread out range of scores from 4 to 10 accross all aggregated groups.
+
+```{r}
+
+df_long <- df_long %>%
+  mutate(
+    survey_question = case_when(
+      str_detect(metric, "saf") ~ "safety",
+      str_detect(metric, "com") ~ "communication",
+      str_detect(metric, "eng") ~ "engagement",
+      str_detect(metric, "aca") ~ "academic"
+    ),
+    respondent_type = case_when(
+      str_detect(metric, "_p_") ~ "parent",
+      str_detect(metric, "_t_") ~ "teacher",
+      str_detect(metric, "_s_") ~ "student",
+      str_detect(metric, "tot") ~ "total"
+    )
+  ) %>%
+  select(dbn, school_name, survey_question, respondent_type, schooltype, metric, score)
+
+ggplot(df_long, aes(x = respondent_type, y = score)) +
+  geom_boxplot() +
+  facet_wrap(~ survey_question) +
+  labs(x = NULL, y = "Score")
+```
+
+Findings:
+
+- parents score highest in all question types and sigificantly higher scores from the other groups in communication, safety and engagement (the IQR does not overlap the other groups')
+- students score lowest, especially in communication and safety
+- teachers score between parents and students
+- the most consistent scores are in academic, suggesting consistent peceptions of academic quality.
+- the largest gap between parents and students is in commmunication. Teachers show a wide IQR, suggesting an internally wide range of perceptions.
+- in engagement, parents are significantly higher than students, even though students are the ones who attend. The teacher IQR is wide again (see previous point)
+- parents rate safey as significantly higher than the teachers and students, even though the students are the ones affected by it directly.
+
+# Conclusions
+
+Parents consistently have a higher perception of the schools than teachers and students. Differences between groups are largest in communication and safety. This suggests that parents are not aware of the daily realities, or students and teachers have higher expectations than parents.
