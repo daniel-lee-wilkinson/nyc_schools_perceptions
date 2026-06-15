@@ -1,6 +1,6 @@
 # New York City Schools Perception
 
-An R Markdown notebook analysing NYC school survey data to explore how students, teachers, and parents differ in their perceptions of school quality — and whether those perceptions relate to academic outcomes.
+An R Markdown notebook analysing NYC school survey data to explore how students, teachers, and parents differ in their perceptions of school quality - and whether those perceptions relate to academic outcomes.
 
 ## Research Questions
 
@@ -10,9 +10,9 @@ An R Markdown notebook analysing NYC school survey data to explore how students,
 
 ## Data Sources
 
-- **combined.csv** — school-level academic outcomes including average SAT scores and demographic data, loaded directly from a hosted URL
-- **masterfile11_gened_final.txt** — survey responses from general education schools
-- **masterfile11_d75_final.txt** — survey responses from District 75 (special education) schools
+- **combined.csv** - school-level academic outcomes including average SAT scores and demographic data, loaded directly from a hosted URL
+- **masterfile11_gened_final.txt** - survey responses from general education schools
+- **masterfile11_d75_final.txt** - survey responses from District 75 (special education) schools
 
 The two survey files must be placed in the project root directory before knitting.
 
@@ -31,7 +31,7 @@ Survey scores (scale 1–10) cover four dimensions, each broken down by responde
 
 - Parents consistently rate schools higher than teachers and students across all dimensions
 - The largest perception gaps are in **communication** and **safety**
-- Students rate lowest, particularly in communication and safety — despite being most directly affected
+- Students rate lowest, particularly in communication and safety - despite being most directly affected
 - Academic expectations show the most consistent scores across groups
 - Teachers show wide internal variation in all dimensions
 
